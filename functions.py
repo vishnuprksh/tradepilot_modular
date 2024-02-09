@@ -9,6 +9,8 @@ from sklearn.preprocessing import MinMaxScaler
 import numpy as np
 from tensorflow import keras
 from sklearn.metrics import r2_score
+import plotly.express as px
+import tensorflow as tf
 
 
 
@@ -140,24 +142,27 @@ def pre_processing_and_prediction(final_df):
     X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], X_train.shape[2]))
     X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], X_test.shape[2]))
 
-    inputs = keras.layers.Input(shape=(X_train.shape[1], X_train.shape[2]))
-    x = keras.layers.LSTM(140, return_sequences=True)(inputs)
-    x = keras.layers.Dropout(0.3)(x)
-    x = keras.layers.LSTM(140, return_sequences=True)(x)
-    x = keras.layers.Dropout(0.3)(x)
-    x = keras.layers.LSTM(140)(x)
-    outputs = keras.layers.Dense(1, activation='linear')(x)
+    # inputs = keras.layers.Input(shape=(X_train.shape[1], X_train.shape[2]))
+    # x = keras.layers.LSTM(140, return_sequences=True)(inputs)
+    # x = keras.layers.Dropout(0.3)(x)
+    # x = keras.layers.LSTM(140, return_sequences=True)(x)
+    # x = keras.layers.Dropout(0.3)(x)
+    # x = keras.layers.LSTM(140)(x)
+    # outputs = keras.layers.Dense(1, activation='linear')(x)
 
-    model = keras.Model(inputs=inputs, outputs=outputs)
-    model.compile(optimizer='adam', loss='mse')
-    model.summary()
+    # model = keras.Model(inputs=inputs, outputs=outputs)
+    # model.compile(optimizer='adam', loss='mse')
+    # model.summary()
 
-    history = model.fit(
-        X_train, y_train,
-        epochs=50,
-        batch_size=32,
-        validation_split=0.2
-    )
+    # history = model.fit(
+    #     X_train, y_train,
+    #     epochs=50,
+    #     batch_size=32,
+    #     validation_split=0.2
+    # )
+
+    # model.save("reliance_model.keras")
+    model = tf.keras.models.load_model("reliance_model.keras")
 
     # Make predictions for the next day
     next_day_features = input_scaled[-1].reshape((1, X_test.shape[1], X_test.shape[2]))
@@ -171,7 +176,18 @@ def pre_processing_and_prediction(final_df):
     # Calculate accuracy
     accuracy = r2_score(y_test, model.predict(X_test))
 
-    return accuracy, true_next_day_price
+
+    def draw_graph():
+        predicted = model.predict(X)
+
+        df_predicted = pd.DataFrame({'Date': final_df['Date'][1:], 'predictions': predicted[:, 0], 'Close': input_scaled[1:, 0]})
+        # df_predicted['difference'] = df_predicted['Close'] - df_predicted['predictions']
+        fig = px.line(df_predicted, x='Date', y=df_predicted.columns[1:], title='Original vs Prediction')
+        return fig
+
+    fig = draw_graph()
+
+    return accuracy, true_next_day_price, fig
 
 
 

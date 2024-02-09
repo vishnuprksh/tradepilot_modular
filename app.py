@@ -34,12 +34,12 @@ final_df = merged_df[:-1]
 
 final_df.to_csv('final_df.csv', index=False)
 
-accuracy, next_day_price = pre_processing_and_prediction(final_df)
+accuracy, next_day_price, fig = pre_processing_and_prediction(final_df)
 
 
 # Display historical stock prices chart
 st.subheader("Stock Price History (Last 6 Months)")
-st.line_chart(stock_data.set_index('Date')['Close'])
+st.plotly_chart(fig)
 
 # Display Mean Squared Error of the model
 st.write(f"R2 Score of the Model: {accuracy: .2f}")
