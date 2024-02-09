@@ -5,7 +5,7 @@ from functions import load_data_from_database, preprocess_data, fill_missing_dat
 from functions import pre_processing_and_prediction
 
 # Streamlit App
-st.title("Stock Price Prediction App")
+st.title("Trade Pilot")
 
 # Dropdown to select the stock ticker
 ticker = st.selectbox("Select Ticker", ["RELIANCE.NS", "TEST"])
