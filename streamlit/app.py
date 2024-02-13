@@ -6,7 +6,7 @@ import requests
 import streamlit as st
 from datetime import datetime, timedelta
 import pandas as pd
-from functions import load_stock_data_from_db, preprocess_data, fill_missing_dates, predict_tomorrow_price, fetch_tweet_data, merge_data
+from functions import load_data_from_database, preprocess_data, fill_missing_dates, predict_tomorrow_price, fetch_tweet_data, merge_data
 from functions import pre_processing_and_prediction
 load_dotenv()
 
@@ -19,13 +19,8 @@ centered_image_html = """
 
 st.markdown(centered_image_html, unsafe_allow_html=True)
 
-# List of suggested tickers
-suggested_tickers = ["", "RELIANCE", "INFOSYS", "GOOGL", "AMZN", "MSFT", "NFLX", "FB"]
-
-# 2. Search Bar with auto-suggest
-st.selectbox("Select Ticker", suggested_tickers, key="search_input")
-
-
+# 2. Search Bar
+st.text_input("Enter Company or Ticker", placeholder="AAPL, TSLA, etc.", key="search_input")
 
 if not st.session_state.search_input:
     # Function to get real-time market data
@@ -89,12 +84,13 @@ if not st.session_state.search_input:
     else:
         display_news(news_data)
 else:
+    st.write(st.session_state.search_input)
     # Specify the desired date range
     start_date = '2023-07-01'
     end_date = '2023-12-31'
 
     # Load data and train model
-    stock_data = load_stock_data_from_db(st.session_state.search_input)
+    stock_data = load_data_from_database(st.session_state.search_input)
 
     # Fill missing dates with zeros
     filled_stock_data = fill_missing_dates(stock_data, start_date, end_date)

@@ -80,14 +80,13 @@ def fill_missing_dates(stock_data, start_date, end_date):
 
 
 
-
 # Function to load historical stock data and train a basic model
-def load_data_from_database(ticker, database_path="stock_data.db"):
+def load_stock_data_from_db(ticker, start_date='2023-07-01', end_date='2023-12-31', database_path="stock_data.db"):
     # Connect to the SQLite database
     connection = sqlite3.connect(database_path)
 
-    # Query the stock data from the database
-    query = f"SELECT * FROM reliance WHERE Date BETWEEN '2023-07-01' AND '2023-12-31'"
+    # Query the stock data from the database with specified start_date and end_date
+    query = f"SELECT * FROM reliance WHERE Date BETWEEN '{start_date}' AND '{end_date}'"
     stock_data = pd.read_sql_query(query, connection)
 
     # Close the database connection
@@ -96,7 +95,7 @@ def load_data_from_database(ticker, database_path="stock_data.db"):
     # Feature engineering: Extract day, month, and year from Date
     stock_data['Date'] = pd.to_datetime(stock_data['Date'])
 
-    stock_data.to_csv('stock_data.csv', index=False)    
+    stock_data.to_csv(f'{ticker}_stock_data.csv', index=False)    
 
     return stock_data
 
