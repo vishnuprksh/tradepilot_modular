@@ -48,18 +48,20 @@ def generate_date_range(start_date, end_date):
 
 
 
-def fetch_tweet_data(database_path="tweets_database.db"):
+def fetch_tweet_data(table_name, start_date, end_date, database_path="tweets_database.db"):
     # Connect to the SQLite database
     connection = sqlite3.connect(database_path)
 
+    # Formulate the SQL query with specified table and date range
+    query = f"SELECT * FROM {table_name} WHERE date BETWEEN '{start_date}' AND '{end_date}'"
+    
     # Query the tweet_data from the database
-    query = "SELECT * FROM tweet_data"
     tweet_data = pd.read_sql_query(query, connection)
 
     # Close the database connection
     connection.close()
 
-    tweet_data.to_csv('tweet_data.csv', index=False)   
+    tweet_data.to_csv('tweet_data_test.csv', index=False)
 
     return tweet_data
 
@@ -111,7 +113,7 @@ def merge_data(stock_data, sentiment_df):
 
     # Merge dataframes on the 'formatted_date' and 'Date' columns
     merged_df = pd.merge(sentiment_df, stock_data, left_on='Date', right_on='Date', how='inner')
-    merged_df = merged_df[merged_df['Close'] != 0]
+    merged_df = merged_df[merged_df['No_of_tweets'] > 10]
 
     merged_df.to_csv('merged_final.csv', index=False)
 
