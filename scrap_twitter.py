@@ -50,19 +50,20 @@ def get_tweets(stock_name, mode, start_date, end_date, scraper, conn, date_count
             print(f"Data for the date {current_date_str} does not exist")
 
             try:
+                final_tweets = []
                 # Retrieve tweets for the current day
                 tweets, page_over = scraper.get_tweets(stock_name, mode=mode, since=current_date_str, until=next_date_str)
-                final_tweets = []
 
-                # Process tweets and extract relevant information
-                for tweet in tweets['tweets']:
-                    # Convert the 'date' field to the desired format
-                    date_string = tweet['date']
-                    parsed_date = datetime.strptime(date_string, "%b %d, %Y · %I:%M %p UTC")
-                    formatted_date = parsed_date.strftime("%Y-%m-%d")
-                    # Append the data to final_tweets
-                    data = [tweet['link'], tweet['text'], formatted_date, tweet['stats']['likes'], tweet['stats']['comments']]
-                    final_tweets.append(data)
+                if tweets['tweets']:
+                    # Process tweets and extract relevant information
+                    for tweet in tweets['tweets']:
+                        # Convert the 'date' field to the desired format
+                        date_string = tweet['date']
+                        parsed_date = datetime.strptime(date_string, "%b %d, %Y · %I:%M %p UTC")
+                        formatted_date = parsed_date.strftime("%Y-%m-%d")
+                        # Append the data to final_tweets
+                        data = [tweet['link'], tweet['text'], formatted_date, tweet['stats']['likes'], tweet['stats']['comments']]
+                        final_tweets.append(data)
 
                 if page_over and final_tweets:
                     print("tweets collected")
@@ -83,10 +84,11 @@ def get_tweets(stock_name, mode, start_date, end_date, scraper, conn, date_count
 
             except Exception as e:
                 print(f"Error collecting tweets for the date {current_date_str}: {str(e)}")
+                print(tweets)
                 # Recreate the Nitter instance in case of an error
-                scraper = Nitter(log_level=1, skip_instance_check=False)
+                # scraper = Nitter(log_level=1, skip_instance_check=False)
                 current_date = start_date
-                continue
+                break
 
         # Move to the next day
         current_date += pd.Timedelta(days=1)
@@ -100,7 +102,7 @@ stock_name = "RELIANCE"
 db_filename = 'tweets_data.db'
 
 start_date_str = "2024-01-17"
-end_date_str = "2024-01-18"
+end_date_str = "2024-01-19"
 
 start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
 end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
