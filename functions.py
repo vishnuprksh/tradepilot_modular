@@ -11,6 +11,51 @@ from tensorflow import keras
 from sklearn.metrics import r2_score
 import plotly.express as px
 import tensorflow as tf
+import google.generativeai as genai
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+# Set up the model
+generation_config = {
+  "temperature": 0.9,
+  "top_p": 1,
+  "top_k": 1,
+  "max_output_tokens": 2048,
+}
+
+safety_settings = [
+  {
+    "category": "HARM_CATEGORY_HARASSMENT",
+    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+  },
+  {
+    "category": "HARM_CATEGORY_HATE_SPEECH",
+    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+  },
+  {
+    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+  },
+  {
+    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+    "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+  },
+]
+
+model = genai.GenerativeModel(model_name="gemini-pro",
+                              generation_config=generation_config,
+                              safety_settings=safety_settings)
+
+convo = model.start_chat(history=[
+])
+
+def get_stock_details_from_gemini(stock, convo = convo):
+    convo.send_message(f"Generate an short summary of the stock {stock}, including about, stregths and weakness. Maximun length of summary is 200 words.")
+    return convo.last.text
+
 
 
 
@@ -34,6 +79,7 @@ def preprocess_data(tweet_data):
 
     # Rename the 'text' column to 'count_of_tweets'
     grouped_data.rename(columns={'text': 'Count_of_tweets'}, inplace=True)
+    grouped_data.to_csv("grouped_data.csv")
 
     return grouped_data
 
@@ -88,7 +134,7 @@ def load_stock_data_from_db(ticker, start_date='2023-07-01', end_date='2023-12-3
     connection = sqlite3.connect(database_path)
 
     # Query the stock data from the database with specified start_date and end_date
-    query = f"SELECT * FROM reliance WHERE Date BETWEEN '{start_date}' AND '{end_date}'"
+    query = f"SELECT * FROM {ticker} WHERE Date BETWEEN '{start_date}' AND '{end_date}'"
     stock_data = pd.read_sql_query(query, connection)
 
     # Close the database connection
@@ -113,7 +159,7 @@ def merge_data(stock_data, sentiment_df):
 
     # Merge dataframes on the 'formatted_date' and 'Date' columns
     merged_df = pd.merge(sentiment_df, stock_data, left_on='Date', right_on='Date', how='inner')
-    merged_df = merged_df[merged_df['No_of_tweets'] > 10]
+    merged_df = merged_df[merged_df['Count_of_tweets'] > 10]
 
     merged_df.to_csv('merged_final.csv', index=False)
 
@@ -181,9 +227,18 @@ def pre_processing_and_prediction(final_df):
     def draw_graph():
         predicted = model.predict(X)
 
-        df_predicted = pd.DataFrame({'Date': final_df['Date'][1:], 'predictions': predicted[:, 0], 'Close': input_scaled[1:, 0]})
-        # df_predicted['difference'] = df_predicted['Close'] - df_predicted['predictions']
-        fig = px.line(df_predicted, x='Date', y=df_predicted.columns[1:], title='Original vs Prediction')
+        df_predicted = pd.DataFrame({'Date': final_df['Date'][1:], 'Our prediction': predicted[:, 0], 'Stock Price': input_scaled[1:, 0]})
+        
+        fig = px.line(df_predicted, x='Date', y=df_predicted.columns[1:], title='Stock Price vs Our Predictions')
+
+        # Assign different colors to each column
+        colors = ['red', 'blue']  # Add more colors as needed
+        for i, col in enumerate(df_predicted.columns[1:]):
+            fig.update_traces(selector=dict(name=col), line_color=colors[i])
+
+        # Update the y-axis label
+        fig.update_layout(yaxis_title='Close Price')
+
         return fig
 
     fig = draw_graph()
@@ -202,3 +257,4 @@ def predict_tomorrow_price(model, last_date):
     
     tomorrow_price = model.predict(tomorrow_data_df)[0]
     return tomorrow_price
+
