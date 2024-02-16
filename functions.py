@@ -1,19 +1,78 @@
+import os
+from datetime import datetime, timedelta, date
+
+import numpy as np
 import pandas as pd
+import sqlite3
+
+from dotenv import load_dotenv
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error
-from datetime import datetime, timedelta
-import sqlite3
-from textblob import TextBlob  
+from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.preprocessing import MinMaxScaler
-import numpy as np
-from tensorflow import keras
-from sklearn.metrics import r2_score
-import plotly.express as px
+
 import tensorflow as tf
+from tensorflow import keras
+
+import yfinance as yf
+
+import plotly.express as px
+
+from textblob import TextBlob
+
 import google.generativeai as genai
-import os
-from dotenv import load_dotenv
+from tensorflow import keras
+
+from sklearn.model_selection import train_test_split
+
+
+# ---------------------------------------------------------------------------------
+def update_stock_date(stock_list, ticker_list):
+    try:
+        for i in range(len(stock_list)):
+            if stock_list[i] != "" and ticker_list[i] != "":
+                end_date = date.today().strftime('%Y-%m-%d')  # Get today's date in the correct format
+                stock_data = yf.download(ticker_list[i], start='2023-07-01', end=end_date)
+
+                # Keep only 'Adj Close' and 'Volume' columns
+                stock_data = stock_data[['Adj Close', 'Volume']]
+                # Rename 'Adj Close' to 'Close'
+                stock_data = stock_data.rename(columns={'Adj Close': 'Close'})
+                # Set the index name to 'Date'
+                stock_data = stock_data.rename_axis('Date')
+
+                # Save data to SQLite database
+                db_filename = "stock_data.db"
+                conn = sqlite3.connect(db_filename)
+                stock_data.to_sql(stock_list[i], conn, if_exists='replace', index=True)
+                conn.close()
+
+        return True
+    except Exception as e:
+        print(f"An exception occurred: {str(e)}")
+        return False
+
+# stock_list = ["", "RELIANCE", "INFOSYS", "WEBELSOLAR", "WIPRO"]
+# ticker_list = ["", "RELIANCE.NS", "INFY.NS", "WEBELSOLAR.NS", "WIPRO.NS"]
+
+# for i in range(len(stock_list)):
+#     if stock_list[i] != "" and ticker_list[i] != "":
+#         end_date = date.today().strftime('%Y-%m-%d')  # Get today's date in the correct format
+#         stock_data = yf.download(ticker_list[i], start='2023-07-01', end=end_date)
+
+#         # Keep only 'Adj Close' and 'Volume' columns
+#         stock_data = stock_data[['Adj Close', 'Volume']]
+#         # Rename 'Adj Close' to 'Close'
+#         stock_data = stock_data.rename(columns={'Adj Close': 'Close'})
+#         # Set the index name to 'Date'
+#         stock_data = stock_data.rename_axis('Date')
+
+#         # Save data to SQLite database
+#         db_filename = "stock_data.db"
+#         conn = sqlite3.connect(db_filename)
+#         stock_data.to_sql(stock_list[i], conn, if_exists='replace', index=True)
+#         conn.close()
+# ---------------------------------------------------------------------------------
 
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
@@ -67,18 +126,17 @@ def preprocess_data(tweet_data):
         return analysis.sentiment.polarity
 
     # Apply sentiment analysis and create a new column 'sentiment_score'
-    tweet_data['Sentiment_score'] = tweet_data['text'].apply(get_sentiment_score)
+    tweet_data['Sentiment_score'] = tweet_data['Text'].apply(get_sentiment_score)
 
     # Group by formatted date and calculate the mean sentiment score
     grouped_data = tweet_data.groupby('Date').agg({
         'Sentiment_score': 'mean',
         'No_of_likes': 'sum',
         'No_of_comments': 'sum',
-        'text': 'count'  # Add a new column for sentiment count
+        'Text': 'count'  # Add a new column for sentiment count
     }).reset_index()
 
-    # Rename the 'text' column to 'count_of_tweets'
-    grouped_data.rename(columns={'text': 'Count_of_tweets'}, inplace=True)
+    grouped_data.rename(columns={'Text': 'Count_of_tweets'}, inplace=True)
     grouped_data.to_csv("grouped_data.csv")
 
     return grouped_data
@@ -159,7 +217,7 @@ def merge_data(stock_data, sentiment_df):
 
     # Merge dataframes on the 'formatted_date' and 'Date' columns
     merged_df = pd.merge(sentiment_df, stock_data, left_on='Date', right_on='Date', how='inner')
-    merged_df = merged_df[merged_df['Count_of_tweets'] > 10]
+    # merged_df = merged_df[merged_df['Count_of_tweets'] > 0]
 
     merged_df.to_csv('merged_final.csv', index=False)
 
@@ -189,27 +247,27 @@ def pre_processing_and_prediction(final_df):
     X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], X_train.shape[2]))
     X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], X_test.shape[2]))
 
-    # inputs = keras.layers.Input(shape=(X_train.shape[1], X_train.shape[2]))
-    # x = keras.layers.LSTM(140, return_sequences=True)(inputs)
-    # x = keras.layers.Dropout(0.3)(x)
-    # x = keras.layers.LSTM(140, return_sequences=True)(x)
-    # x = keras.layers.Dropout(0.3)(x)
-    # x = keras.layers.LSTM(140)(x)
-    # outputs = keras.layers.Dense(1, activation='linear')(x)
+    inputs = keras.layers.Input(shape=(X_train.shape[1], X_train.shape[2]))
+    x = keras.layers.LSTM(140, return_sequences=True)(inputs)
+    x = keras.layers.Dropout(0.3)(x)
+    x = keras.layers.LSTM(140, return_sequences=True)(x)
+    x = keras.layers.Dropout(0.3)(x)
+    x = keras.layers.LSTM(140)(x)
+    outputs = keras.layers.Dense(1, activation='linear')(x)
 
-    # model = keras.Model(inputs=inputs, outputs=outputs)
-    # model.compile(optimizer='adam', loss='mse')
-    # model.summary()
+    model = keras.Model(inputs=inputs, outputs=outputs)
+    model.compile(optimizer='adam', loss='mse')
+    model.summary()
 
-    # history = model.fit(
-    #     X_train, y_train,
-    #     epochs=50,
-    #     batch_size=32,
-    #     validation_split=0.2
-    # )
+    history = model.fit(
+        X_train, y_train,
+        epochs=50,
+        batch_size=32,
+        validation_split=0.2
+    )
 
     # model.save("reliance_model.keras")
-    model = tf.keras.models.load_model("reliance_model.keras")
+    # model = tf.keras.models.load_model("reliance_model.keras")
 
     # Make predictions for the next day
     next_day_features = input_scaled[-1].reshape((1, X_test.shape[1], X_test.shape[2]))
@@ -225,9 +283,12 @@ def pre_processing_and_prediction(final_df):
 
 
     def draw_graph():
-        predicted = model.predict(X)
+        predicted_scaled = model.predict(X)
+        num_rows = predicted_scaled.shape[0]
+        predicted_flatten = np.hstack([predicted_scaled, np.zeros((num_rows, 5))])
+        predicted_original = sc.inverse_transform(predicted_flatten)
 
-        df_predicted = pd.DataFrame({'Date': final_df['Date'][1:], 'Our prediction': predicted[:, 0], 'Stock Price': input_scaled[1:, 0]})
+        df_predicted = pd.DataFrame({'Date': final_df['Date'][1:], 'Our prediction': predicted_original[:, 0], 'Stock Price': input_data[1:, 0]})
         
         fig = px.line(df_predicted, x='Date', y=df_predicted.columns[1:], title='Stock Price vs Our Predictions')
 
@@ -257,4 +318,18 @@ def predict_tomorrow_price(model, last_date):
     
     tomorrow_price = model.predict(tomorrow_data_df)[0]
     return tomorrow_price
+
+# Function to get real-time market data
+def get_market_data(ticker_symbol):
+    # Fetch the stock data
+    ticker = yf.Ticker(ticker_symbol)
+    data = ticker.history()
+
+    # Get the last closing price
+    last_price = data['Close'].iloc[-1]
+
+    # Calculate the change percentage
+    change_percent = (last_price - data['Close'].iloc[-2]) / data['Close'].iloc[-2] * 100
+
+    return last_price, change_percent
 

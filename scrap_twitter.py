@@ -24,7 +24,7 @@ def insert_data_into_db(conn, data_list, stock_name):
         df.to_sql(stock_name, conn, if_exists='append', index=False)
     conn.commit()
 
-def get_tweets(stock_name, mode, start_date, end_date, scraper, conn, date_counter):
+def get_tweets(stock_name, mode, start_date, end_date, scraper, conn, date_dict):
     data_list = []  # List to store data for each day
     all_dates_skipped = True  # Set to True initially
 
@@ -51,11 +51,13 @@ def get_tweets(stock_name, mode, start_date, end_date, scraper, conn, date_count
 
             try:
                 final_tweets = []
+                page_over = False
                 # Retrieve tweets for the current day
                 tweets, page_over = scraper.get_tweets(stock_name, mode=mode, since=current_date_str, until=next_date_str)
 
-                if tweets['tweets']:
-                    # Process tweets and extract relevant information
+
+                if page_over:
+
                     for tweet in tweets['tweets']:
                         # Convert the 'date' field to the desired format
                         date_string = tweet['date']
@@ -65,50 +67,48 @@ def get_tweets(stock_name, mode, start_date, end_date, scraper, conn, date_count
                         data = [tweet['link'], tweet['text'], formatted_date, tweet['stats']['likes'], tweet['stats']['comments']]
                         final_tweets.append(data)
 
-                if page_over and final_tweets:
-                    print("tweets collected")
-                    all_dates_skipped = False  # Set to False if data is not available in the db even for a single date
-
                     print(f"The page is over for date {current_date_str} and {len(final_tweets)} tweets are collected\n")
 
                     current_day_data = pd.DataFrame(final_tweets, columns=['Link', 'Text', 'Date', 'No_of_likes', 'No_of_comments'])
                     current_day_data = current_day_data.rename_axis('Index')
                     data_list.append(current_day_data)
 
-                elif page_over:
-                    print(f"The page is over for date {current_date_str} and No tweets are collected\n")
+                    # Insert data into SQLite database
+                    print("Date stored into the DB")
+                    insert_data_into_db(conn, data_list, stock_name)
+                    data_list = []
 
                 else:
+                    all_dates_skipped = False  # Set to False if data is not available in the db even for a single date
                     print(f"Some error happend during scraping of the date {current_date_str}\n")
                    
 
             except Exception as e:
-                print(f"Error collecting tweets for the date {current_date_str}: {str(e)}")
-                print(tweets)
+                print(f"Error collecting tweets for the date {current_date_str}: {str(e)}\n")
+                date_dict[current_date_str] += 1
+                if date_dict[current_date_str] < 5:
+                    all_dates_skipped = False  # Set to False if data is not available in the db even for a single date
                 # Recreate the Nitter instance in case of an error
                 # scraper = Nitter(log_level=1, skip_instance_check=False)
-                current_date = start_date
-                break
+                # current_date = start_date
 
         # Move to the next day
+        print("The date is updated")
         current_date += pd.Timedelta(days=1)
 
-    # Insert data into SQLite database
-    insert_data_into_db(conn, data_list, stock_name)
-
+    print("Function returned")
     return all_dates_skipped
 
-stock_name = "RELIANCE"
-db_filename = 'tweets_data.db'
+stock_name = "TCS"
+db_filename = 'tweets_database.db'
 
-start_date_str = "2024-01-17"
-end_date_str = "2024-01-19"
+start_date_str = "2023-07-01"
+# end_date_str = "2024-01-05"
 
 start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
-end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
-# end_date = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')# Instantiate Nitter and SQLite connection outside the function
+# end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+end_date = (datetime.today() - timedelta(days=1))# Instantiate Nitter and SQLite connection outside the function
 
-scraper = Nitter(log_level=1, skip_instance_check=False)
 conn = sqlite3.connect(db_filename)
 
 
@@ -126,6 +126,7 @@ create_db_table_if_not_exists(conn, stock_name)
 # Keep calling the function until all dates are skipped
 all_dates_skipped = False
 while not all_dates_skipped:
+    scraper = Nitter(log_level=1, skip_instance_check=False)
     all_dates_skipped = get_tweets(stock_name, 'hashtag', start_date, end_date, scraper, conn, date_dict)
 
 # Close the SQLite connection after all dates are collected

@@ -7,7 +7,7 @@ import streamlit as st
 from datetime import datetime, timedelta
 import pandas as pd
 from functions import load_stock_data_from_db, preprocess_data, fill_missing_dates, predict_tomorrow_price, fetch_tweet_data, merge_data
-from functions import pre_processing_and_prediction, get_stock_details_from_gemini
+from functions import pre_processing_and_prediction, get_stock_details_from_gemini, get_market_data, update_stock_date
 load_dotenv()
 
 
@@ -29,19 +29,6 @@ centered_tag = """
 st.markdown(centered_header, unsafe_allow_html=True)
 st.markdown(centered_tag, unsafe_allow_html=True)
 
-# Function to get real-time market data
-def get_market_data(ticker_symbol):
-    # Fetch the stock data
-    ticker = yf.Ticker(ticker_symbol)
-    data = ticker.history()
-
-    # Get the last closing price
-    last_price = data['Close'].iloc[-1]
-
-    # Calculate the change percentage
-    change_percent = (last_price - data['Close'].iloc[-2]) / data['Close'].iloc[-2] * 100
-
-    return last_price, change_percent
 
 # Replace the following symbols with the ones you are interested in (e.g., '^DJI', '^GSPC', '^IXIC')
 ticker_1 = '^NSEI'
@@ -60,18 +47,19 @@ col1.metric("NIFTY 50", f"{price_1:.2f}", f"{percentage_1:.2f}%")
 col2.metric("SENSEX", f"{price_2:.2f}", f"{percentage_2:.2f}%")
 col3.metric("NIFTY BANK", f"{price_3:.2f}", f"{percentage_3:.2f}%")
 
-
-
 # List of suggested tickers
-suggested_tickers = ["", "RELIANCE", "INFOSYS", "GOOGL", "AMZN", "MSFT", "NFLX", "FB"]
+stock_list = ["", "RELIANCE", "INFOSYS", "WEBELSOLAR", "WIPRO"]
+ticker_list = ["", "RELIANCE.NS", "INFY.NS", "WEBELSOLAR.NS", "WIPRO.NS"]
 
 # 2. Search Bar with auto-suggest
-st.selectbox("Select Ticker", suggested_tickers, key="search_input")
+st.selectbox("Select Ticker", stock_list, key="search_input")
 
-
+stock_bool = update_stock_date(stock_list, ticker_list)
 
 
 if not st.session_state.search_input:
+    if stock_bool:
+        st.success("Stock data updated!")
 
     # How it Works Section
     st.subheader("❔ How Does We Work?")
@@ -128,13 +116,10 @@ else:
 
     # Specify the desired date range
     start_date = '2023-07-01'
-    end_date = '2023-12-31'
+    end_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
 
     # Load data and train model
-    stock_data = load_stock_data_from_db(st.session_state.search_input)
-
-    # # Fill missing dates with zeros
-    # filled_stock_data = fill_missing_dates(stock_data, start_date, end_date)
+    stock_data = load_stock_data_from_db(st.session_state.search_input, start_date, end_date)
 
     # get twitter data
     tweet_data = fetch_tweet_data(st.session_state.search_input, start_date, end_date)
@@ -158,11 +143,10 @@ else:
     st.plotly_chart(fig)
 
     # Display Mean Squared Error of the model
-    st.write(f"R2 Score of the Model: {accuracy: .2f}")
+    # st.write(f"R2 Score of the Model: {accuracy: .2f}")
 
 
     # Display predicted stock price for tomorrow
-    next_day_price = 55345
     st.markdown("""
     <style>
         .price-box {
