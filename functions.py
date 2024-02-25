@@ -23,8 +23,8 @@ import google.generativeai as genai
 from tensorflow import keras
 
 from sklearn.model_selection import train_test_split
-import toml
 
+import streamlit as st
 
 # ---------------------------------------------------------------------------------
 def update_stock_date(stock_list, ticker_list):
@@ -74,10 +74,8 @@ def update_stock_date(stock_list, ticker_list):
 #         conn.close()
 # ---------------------------------------------------------------------------------
 
-# load_dotenv()
-data = toml.load("config.toml")
 
-genai.configure(api_key=data["API"]["GEMINI_API_KEY"])
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
 # Set up the model
 generation_config = {
