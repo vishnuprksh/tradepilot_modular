@@ -1,15 +1,14 @@
 import streamlit as st
 import yfinance as yf
 import os
-from dotenv import load_dotenv
 import requests
 import streamlit as st
 from datetime import datetime, timedelta
 import pandas as pd
+import toml
 from functions import load_stock_data_from_db, preprocess_data, fill_missing_dates, predict_tomorrow_price, fetch_tweet_data, merge_data
 from functions import pre_processing_and_prediction, get_stock_details_from_gemini, get_market_data, update_stock_date
-load_dotenv()
-
+config_data = toml.load("config.toml")
 
 # Centered Image
 centered_header = """
@@ -101,7 +100,7 @@ if not st.session_state.search_input:
                 st.write(f"Source: {article['source']['name']}")
                 st.write("------")
 
-    api_key = os.getenv("NEWS_API")  # Replace with your News API key
+    api_key = config_data["API"]["NEWS_API_KEY"]
     st.header("Latest News Headlines")
     news_data = fetch_news(api_key)
 
@@ -133,7 +132,7 @@ else:
 
     final_df = merged_df[:-1]
 
-    final_df.to_csv('final_df.csv', index=False)
+    # final_df.to_csv('final_df.csv', index=False)
 
     accuracy, next_day_price, fig = pre_processing_and_prediction(final_df)
 

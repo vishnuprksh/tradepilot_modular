@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import sqlite3
 
-from dotenv import load_dotenv
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
@@ -24,6 +23,7 @@ import google.generativeai as genai
 from tensorflow import keras
 
 from sklearn.model_selection import train_test_split
+import toml
 
 
 # ---------------------------------------------------------------------------------
@@ -74,8 +74,10 @@ def update_stock_date(stock_list, ticker_list):
 #         conn.close()
 # ---------------------------------------------------------------------------------
 
-load_dotenv()
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# load_dotenv()
+data = toml.load("config.toml")
+
+genai.configure(api_key=data["API"]["GEMINI_API_KEY"])
 
 # Set up the model
 generation_config = {
@@ -137,7 +139,7 @@ def preprocess_data(tweet_data):
     }).reset_index()
 
     grouped_data.rename(columns={'Text': 'Count_of_tweets'}, inplace=True)
-    grouped_data.to_csv("grouped_data.csv")
+    # grouped_data.to_csv("grouped_data.csv")
 
     return grouped_data
 
@@ -165,7 +167,7 @@ def fetch_tweet_data(table_name, start_date, end_date, database_path="tweets_dat
     # Close the database connection
     connection.close()
 
-    tweet_data.to_csv('tweet_data_test.csv', index=False)
+    # tweet_data.to_csv('tweet_data_test.csv', index=False)
 
     return tweet_data
 
@@ -177,7 +179,7 @@ def fill_missing_dates(stock_data, start_date, end_date):
     date_range_df = generate_date_range(start_date, end_date)
     
     filled_stock_data = pd.merge(date_range_df, stock_data, on='Date', how='left').fillna(0)
-    filled_stock_data.to_csv('filled_stock_data.csv', index=False)
+    # filled_stock_data.to_csv('filled_stock_data.csv', index=False)
 
     return filled_stock_data
 
@@ -201,7 +203,7 @@ def load_stock_data_from_db(ticker, start_date='2023-07-01', end_date='2023-12-3
     # Feature engineering: Extract day, month, and year from Date
     stock_data['Date'] = pd.to_datetime(stock_data['Date'])
 
-    stock_data.to_csv(f'{ticker}_stock_data.csv', index=False)    
+    # stock_data.to_csv(f'{ticker}_stock_data.csv', index=False)    
 
     return stock_data
 
@@ -219,7 +221,7 @@ def merge_data(stock_data, sentiment_df):
     merged_df = pd.merge(sentiment_df, stock_data, left_on='Date', right_on='Date', how='inner')
     # merged_df = merged_df[merged_df['Count_of_tweets'] > 0]
 
-    merged_df.to_csv('merged_final.csv', index=False)
+    # merged_df.to_csv('merged_final.csv', index=False)
 
     return merged_df
 
